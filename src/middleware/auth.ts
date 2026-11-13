@@ -1,37 +1,37 @@
-import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
-dotenv.config();
+import { Response, NextFunction } from "express"
+import { AuthenticatedRequest } from "../types"
+import { verifyAccessToken } from "../util/jwt"
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
+export const authenticate = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const authHeader = req.headers.authorization
 
-export interface AuthRequest extends Request {
-    user?: any
-    
-}
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication token missing or malformed",
+    })
+  }
 
-export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization
+  const token = authHeader.split(" ")[1]
 
-    if (!authHeader) {
-        return res.status(401).json({
-            message: "Token Missing..!"
-        })
+  try {
+    const payload = verifyAccessToken(token)
+    req.user = payload
+    next()
+  } catch (err: any) {
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication token has expired. Please refresh your session.",
+      })
     }
-    const token = authHeader.split(" ")[1]
-
-    try {
-        const payload = await jwt.verify(token, JWT_SECRET)
-        req.user = payload
-        next()
-
-    } catch (err) {
-        console.error(err)
-        res.status(401).json({
-            message: "Invalid or expired Token..!"
-        })
-    }
-
+    return res.status(401).json({
+      success: false,
+      message: "Invalid authentication token",
+    })
+  }
 }
-
-
