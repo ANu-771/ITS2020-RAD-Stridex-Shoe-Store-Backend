@@ -3,6 +3,11 @@ import cors from "cors"
 import cookieParser from "cookie-parser"
 import path from "path"
 import AuthRouter from "./routes/auth.routers"
+import CategoryRouter from "./routes/category.routers"
+import BrandRouter from "./routes/brand.routers"
+import ProductRouter from "./routes/product.routers"
+import ProductVariantRouter from "./routes/productVariant.routers"
+import UploadRouter from "./routes/upload.routers"
 import { errorHandler, notFoundHandler } from "./middleware/error"
 
 const app: Application = express()
@@ -32,7 +37,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({
     status: "ok",
     service: "STRIDEX Backend API",
-    version: "2.0.0",
+    version: "3.0.0",
     database: "MongoDB Atlas",
     timestamp: new Date().toISOString(),
   })
@@ -42,13 +47,19 @@ app.get("/api/health", (_req: Request, res: Response) => {
 app.get("/", (_req: Request, res: Response) => {
   res.status(200).json({
     message: "Welcome to STRIDEX E-Commerce API",
-    version: "2.0.0",
+    version: "3.0.0",
+    currency: "LKR (Sri Lankan Rupees)",
     docs: "/api/health",
   })
 })
 
 // Feature Routes
 app.use("/api/v1/auth", AuthRouter)
+app.use("/api/v1/categories", CategoryRouter)
+app.use("/api/v1/brands", BrandRouter)
+app.use("/api/v1/products", ProductRouter)
+app.use("/api/v1/variants", ProductVariantRouter)
+app.use("/api/v1/upload", UploadRouter)
 
 // 404 & Centralized Error Handlers
 app.use(notFoundHandler)
