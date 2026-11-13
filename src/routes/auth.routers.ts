@@ -1,29 +1,53 @@
 import { Router } from "express"
-import { getMyDetails, getRefreshToken, login, register } from "./../controllers/auth.controller"
+import {
+  getMyDetails,
+  getRefreshToken,
+  login,
+  logout,
+  register,
+} from "../controllers/auth.controller"
 import { authenticate } from "../middleware/auth"
 import { requireRole } from "../middleware/role"
 import { UserRole } from "../models/user.model"
+import { validateRequest } from "../middleware/validate"
+import { registerSchema, loginSchema } from "../validators/auth.validator"
 
 const router = Router()
 
-router.post("/login", login)
-router.post("/register", register)
+// Public authentication routes
+router.post("/register", validateRequest(registerSchema), register)
+router.post("/login", validateRequest(loginSchema), login)
 router.post("/refresh", getRefreshToken)
+router.post("/logout", logout)
 
-router.get("/me", authenticate ,getMyDetails)
+// Protected user routes
+router.get("/me", authenticate, getMyDetails)
 
-//admin route
-router.get("/admin", authenticate, requireRole([UserRole.ADMIN]), (_req, res) => {
-    res.status(200).json({ message: "Admin access granted" })
-})
+// Role-protected test routes for verification
+router.get(
+  "/admin-only",
+  authenticate,
+  requireRole([UserRole.ADMIN]),
+  (req: any, res) => {
+    res.status(200).json({
+      success: true,
+      message: "Admin authorization verified. Access granted to administrative control plane.",
+      user: req.user,
+    })
+  }
+)
 
-//admin, manager route
-router.get("/admin-manager", authenticate, requireRole([UserRole.ADMIN, UserRole.MANAGER]), (_req, res) => {
-    res.status(200).json({ message: "Admin or manager access granted" })
-})
-
+router.get(
+  "/inventory-only",
+  authenticate,
+  requireRole([UserRole.INVENTORY_MANAGER, UserRole.ADMIN]),
+  (req: any, res) => {
+    res.status(200).json({
+      success: true,
+      message: "Inventory Manager authorization verified. Access granted to warehouse inventory management.",
+      user: req.user,
+    })
+  }
+)
 
 export default router
-
-
-//make article save for enrollemnts need dtitle content for article must make this
