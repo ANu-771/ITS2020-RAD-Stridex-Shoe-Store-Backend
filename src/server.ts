@@ -3,6 +3,7 @@ dotenv.config()
 
 import app from "./app"
 import { connectDB } from "./config/db"
+import { ensureStorageBucketExists } from "./config/supabase"
 
 const PORT = process.env.PORT || 3000
 
@@ -18,6 +19,11 @@ const startServer = async () => {
   // Connect to Database asynchronously
   connectDB().catch((err) => {
     console.error("Database initialization failed:", err)
+  })
+
+  // Ensure Supabase Storage bucket is ready asynchronously
+  ensureStorageBucketExists().catch((err) => {
+    console.warn("Supabase storage initialization warning:", err)
   })
 
   // Graceful shutdown handling

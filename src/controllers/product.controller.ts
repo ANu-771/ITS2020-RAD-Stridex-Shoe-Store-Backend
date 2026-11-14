@@ -4,6 +4,37 @@ import { BrandModel } from '../models/brand.model';
 import { CategoryModel } from '../models/category.model';
 import { ProductVariantModel } from '../models/productVariant.model';
 import { slugify } from '../util/slug';
+import {
+  deleteImageFromSupabase,
+  extractStoragePathFromUrl,
+} from '../service/supabase.service';
+
+/**
+ * Safely delete product images from Supabase Storage if no other product references them
+ */
+const cleanupOrphanedProductImages = async (
+  imageUrls: string[],
+  currentProductId?: string
+): Promise<void> => {
+  for (const imgUrl of imageUrls) {
+    try {
+      const storagePath = extractStoragePathFromUrl(imgUrl);
+      if (!storagePath) continue;
+
+      // Ensure no other product uses this image URL
+      const query: any = { images: imgUrl };
+      if (currentProductId) {
+        query._id = { $ne: currentProductId };
+      }
+      const isReferencedElsewhere = await ProductModel.exists(query);
+      if (!isReferencedElsewhere) {
+        await deleteImageFromSupabase(storagePath);
+      }
+    } catch (err: any) {
+      console.warn(`[Supabase Storage] Cleanup skipped for '${imgUrl}':`, err.message);
+    }
+  }
+};
 
 // GET /api/v1/products
 export const getAllProducts = async (req: Request, res: Response) => {
@@ -288,7 +319,7 @@ export const createProduct = async (req: Request, res: Response) => {
 // PUT /api/v1/products/:id
 export const updateProduct = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const product = await ProductModel.findById(id);
 
     if (!product) {
@@ -352,7 +383,18 @@ export const updateProduct = async (req: Request, res: Response) => {
 
     if (basePrice !== undefined) product.basePrice = nextBase;
     if (discountPrice !== undefined) product.discountPrice = nextDiscount;
-    if (images !== undefined && Array.isArray(images)) product.images = images;
+
+    if (images !== undefined && Array.isArray(images)) {
+      // Find removed images and clean them up from Supabase Storage asynchronously
+      const removedImages = product.images.filter((img) => !images.includes(img));
+      if (removedImages.length > 0) {
+        cleanupOrphanedProductImages(removedImages, id).catch((e) =>
+          console.warn('[Supabase Cleanup Error]', e)
+        );
+      }
+      product.images = images;
+    }
+
     if (gender !== undefined) product.gender = gender;
     if (material !== undefined) product.material = material;
     if (isFeatured !== undefined) product.isFeatured = isFeatured;
@@ -377,7 +419,7 @@ export const updateProduct = async (req: Request, res: Response) => {
 // DELETE /api/v1/products/:id
 export const deleteProduct = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const product = await ProductModel.findById(id);
 
     if (!product) {
@@ -385,6 +427,13 @@ export const deleteProduct = async (req: Request, res: Response) => {
         success: false,
         message: 'Product not found',
       });
+    }
+
+    // Clean up product images from Supabase Storage if no other product uses them
+    if (product.images && product.images.length > 0) {
+      cleanupOrphanedProductImages(product.images, id).catch((e) =>
+        console.warn('[Supabase Cleanup Error]', e)
+      );
     }
 
     // Cascade delete associated variants
