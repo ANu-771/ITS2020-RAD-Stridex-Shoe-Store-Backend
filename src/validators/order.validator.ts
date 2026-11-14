@@ -28,3 +28,24 @@ export const createOrderSchema = z.object({
     .optional(),
   paymentMethod: z.enum(['CASH_ON_DELIVERY', 'ONLINE_CARD', 'BANK_TRANSFER']).default('CASH_ON_DELIVERY'),
 });
+
+export const cancelOrderSchema = z.object({
+  reason: z.string().trim().optional().default('Cancelled by customer'),
+});
+
+export const simulatePaymentSchema = z.object({
+  simulationResult: z.enum(['SUCCESS', 'FAILED', 'PENDING']),
+  cardBrand: z.string().optional().default('Visa'),
+  last4: z.string().optional().default('4242'),
+  notes: z.string().optional().default(''),
+});
+
+export const updateOrderStatusSchema = z.object({
+  orderStatus: z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']),
+  note: z.string().trim().optional(),
+});
+
+export const updatePaymentStatusSchema = z.object({
+  paymentStatus: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED']),
+  note: z.string().trim().optional(),
+});

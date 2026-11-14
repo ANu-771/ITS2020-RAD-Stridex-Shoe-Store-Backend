@@ -13,5 +13,9 @@ router.post('/', orderController.createOrder);
 router.get('/', orderController.getMyOrders);
 router.get('/admin/all', requireRole([UserRole.ADMIN, UserRole.INVENTORY_MANAGER]), orderController.getAllOrders);
 router.get('/:id', orderController.getOrderById);
+router.post('/:id/pay', orderController.simulatePayment);
+router.post('/:id/cancel', orderController.cancelOrder);
+router.patch('/:id/status', requireRole([UserRole.ADMIN, UserRole.INVENTORY_MANAGER]), orderController.updateOrderStatus);
+router.patch('/:id/payment-status', requireRole([UserRole.ADMIN, UserRole.INVENTORY_MANAGER]), orderController.updatePaymentStatus);
 
 export default router;

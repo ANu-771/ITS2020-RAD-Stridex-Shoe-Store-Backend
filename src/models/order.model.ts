@@ -4,7 +4,7 @@ import { IProductVariant } from './productVariant.model';
 import { IUser } from './user.model';
 
 export type PaymentMethod = 'CASH_ON_DELIVERY' | 'ONLINE_CARD' | 'BANK_TRANSFER';
-export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
 
 export interface IOrderItem {
@@ -29,17 +29,38 @@ export interface ICustomerDetails {
   deliveryNotes?: string;
 }
 
+export interface IOrderTimeline {
+  status: OrderStatus;
+  timestamp: Date;
+  title: string;
+  description: string;
+}
+
+export interface IPaymentDetails {
+  transactionId?: string;
+  paidAt?: Date;
+  simulatedStatus?: string;
+  note?: string;
+}
+
 export interface IOrder extends Document {
   orderNumber: string;
   userId: Types.ObjectId | IUser;
   customerDetails: ICustomerDetails;
+  deliveryAddress: string; // Direct top-level access as specified in requirements
   items: IOrderItem[];
   subtotal: number; // In LKR
   deliveryFee: number; // In LKR
-  finalTotal: number; // In LKR
+  totalAmount: number; // In LKR
+  finalTotal: number; // In LKR (alias of totalAmount)
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
+  stockRestored: boolean; // Prevents duplicate stock restoration on cancellation
+  cancelledAt?: Date;
+  cancellationReason?: string;
+  paymentDetails?: IPaymentDetails;
+  trackingTimeline: IOrderTimeline[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -155,6 +176,11 @@ const orderSchema = new Schema<IOrder>(
       type: customerDetailsSchema,
       required: [true, 'Customer details are required'],
     },
+    deliveryAddress: {
+      type: String,
+      required: [true, 'Delivery address is required'],
+      trim: true,
+    },
     items: {
       type: [orderItemSchema],
       required: [true, 'Order items are required'],
@@ -171,6 +197,11 @@ const orderSchema = new Schema<IOrder>(
       min: [0, 'Delivery fee cannot be negative'],
       default: 0,
     },
+    totalAmount: {
+      type: Number,
+      required: [true, 'Total amount in LKR is required'],
+      min: [0, 'Total amount cannot be negative'],
+    },
     finalTotal: {
       type: Number,
       required: [true, 'Final total in LKR is required'],
@@ -183,7 +214,7 @@ const orderSchema = new Schema<IOrder>(
     },
     paymentStatus: {
       type: String,
-      enum: ['PENDING', 'PAID', 'FAILED'],
+      enum: ['PENDING', 'PAID', 'FAILED', 'REFUNDED'],
       default: 'PENDING',
     },
     orderStatus: {
@@ -191,6 +222,32 @@ const orderSchema = new Schema<IOrder>(
       enum: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
       default: 'PENDING',
     },
+    stockRestored: {
+      type: Boolean,
+      default: false,
+    },
+    cancelledAt: {
+      type: Date,
+    },
+    cancellationReason: {
+      type: String,
+      trim: true,
+    },
+    paymentDetails: {
+      transactionId: { type: String },
+      paidAt: { type: Date },
+      simulatedStatus: { type: String },
+      note: { type: String },
+    },
+    trackingTimeline: [
+      {
+        status: { type: String, required: true },
+        timestamp: { type: Date, default: Date.now },
+        title: { type: String, required: true },
+        description: { type: String, required: true },
+        _id: false,
+      },
+    ],
   },
   {
     timestamps: true,
