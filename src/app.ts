@@ -8,6 +8,9 @@ import BrandRouter from "./routes/brand.routers"
 import ProductRouter from "./routes/product.routers"
 import ProductVariantRouter from "./routes/productVariant.routers"
 import UploadRouter from "./routes/upload.routers"
+import CartRouter from "./routes/cart.routers"
+import WishlistRouter from "./routes/wishlist.routers"
+import OrderRouter from "./routes/order.routers"
 import { errorHandler, notFoundHandler } from "./middleware/error"
 
 const app: Application = express()
@@ -60,6 +63,9 @@ app.use("/api/v1/brands", BrandRouter)
 app.use("/api/v1/products", ProductRouter)
 app.use("/api/v1/variants", ProductVariantRouter)
 app.use("/api/v1/upload", UploadRouter)
+app.use("/api/v1/cart", CartRouter)
+app.use("/api/v1/wishlist", WishlistRouter)
+app.use("/api/v1/orders", OrderRouter)
 
 // 404 & Centralized Error Handlers
 app.use(notFoundHandler)

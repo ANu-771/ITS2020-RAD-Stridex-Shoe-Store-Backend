@@ -154,6 +154,7 @@ export const getAllProducts = async (req: Request, res: Response) => {
           variantCount: variants.length,
           availableSizes: sizes,
           availableColors: colors,
+          variants,
         };
       })
     );
