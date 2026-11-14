@@ -50,6 +50,8 @@ export const getAllProducts = async (req: Request, res: Response) => {
       active,
       minPrice,
       maxPrice,
+      size,
+      color,
       sort = 'newest',
     } = req.query;
 
@@ -95,6 +97,20 @@ export const getAllProducts = async (req: Request, res: Response) => {
       queryFilter.basePrice = {};
       if (minPrice !== undefined) queryFilter.basePrice.$gte = Number(minPrice);
       if (maxPrice !== undefined) queryFilter.basePrice.$lte = Number(maxPrice);
+    }
+
+    // Variant-based filters (Size and Color)
+    if (size !== undefined || color !== undefined) {
+      const variantFilter: Record<string, any> = { isActive: true };
+      if (size !== undefined && String(size).trim() !== '') {
+        variantFilter.size = Number(size);
+      }
+      if (color !== undefined && String(color).trim() !== '') {
+        variantFilter.color = new RegExp(`^${String(color).trim()}$`, 'i');
+      }
+
+      const matchingVariants = await ProductVariantModel.find(variantFilter).distinct('productId');
+      queryFilter._id = { $in: matchingVariants };
     }
 
     // Text search filter
