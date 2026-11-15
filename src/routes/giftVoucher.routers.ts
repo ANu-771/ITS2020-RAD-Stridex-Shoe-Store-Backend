@@ -15,8 +15,8 @@ router.post('/purchase', authenticate, giftVoucherController.purchase);
 // Get authenticated customer's vouchers (purchased and received)
 router.get('/my-vouchers', authenticate, giftVoucherController.getMyVouchers);
 
-// Validate voucher code at checkout (calculates applicable discount)
-router.post('/validate', giftVoucherController.validateVoucher);
+// Validate voucher code at checkout (enforces authenticated recipient-only ownership)
+router.post('/validate', authenticate, giftVoucherController.validateVoucher);
 
 // Get single voucher details by ID
 router.get('/:id', authenticate, giftVoucherController.getVoucherById);

@@ -77,6 +77,7 @@ export const giftVoucherController = {
         originalValue: parsed.amount,
         remainingBalance: parsed.amount,
         purchaserId: user._id,
+        purchaserEmail: user.email.trim().toLowerCase(),
         recipientName: parsed.recipientName.trim(),
         recipientEmail: parsed.recipientEmail.trim().toLowerCase(),
         personalMessage: parsed.personalMessage?.trim() || '',
@@ -126,36 +127,64 @@ export const giftVoucherController = {
   getMyVouchers: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
-      const userEmail = req.user?.email?.toLowerCase();
+      const userEmail = req.user?.email?.trim().toLowerCase();
 
-      if (!userId) {
+      if (!userId || !userEmail) {
         return res.status(401).json({
           success: false,
           message: 'Authentication required to view your vouchers',
         });
       }
 
-      // Find vouchers where the customer is either the purchaser or recipient
-      const allVouchers = await GiftVoucherModel.find({
-        $or: [{ purchaserId: userId }, ...(userEmail ? [{ recipientEmail: userEmail }] : [])],
+      // 1. RECIPIENT-ONLY ISSUED VOUCHERS:
+      // Filter My Vouchers using the authenticated recipient email.
+      // The purchaser's account must NOT show the voucher as an available redeemable voucher.
+      const issuedVouchers = await GiftVoucherModel.find({
+        recipientEmail: userEmail,
+        purchaseStatus: 'COMPLETED',
+        code: { $exists: true, $ne: null },
       })
         .sort({ createdAt: -1 })
         .populate('purchaserId', 'fullName email phone');
 
-      // Separate into active/issued vouchers and pending payment purchases
-      const issuedVouchers = allVouchers.filter(
-        (v) => v.purchaseStatus === 'COMPLETED' && v.code
-      );
-      const pendingPurchases = allVouchers.filter(
-        (v) => v.purchaseStatus === 'PENDING_PAYMENT'
-      );
+      // 2. GIFTS PURCHASED FOR OTHERS (For purchaser audit tracking; secret code excluded)
+      const purchasedGiftsRaw = await GiftVoucherModel.find({
+        $or: [{ purchaserId: userId }, { purchaserEmail: userEmail }],
+        recipientEmail: { $ne: userEmail },
+        purchaseStatus: 'COMPLETED',
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      // Mask/sanitize so purchaser cannot view or copy recipient's private code
+      const purchasedGifts = purchasedGiftsRaw.map((g) => ({
+        _id: g._id,
+        originalValue: g.originalValue,
+        recipientName: g.recipientName,
+        recipientEmail: g.recipientEmail,
+        personalMessage: g.personalMessage,
+        purchaseStatus: g.purchaseStatus,
+        paymentStatus: g.paymentStatus,
+        status: g.status,
+        isIssued: Boolean(g.code),
+        issuedAt: g.issuedAt,
+        createdAt: g.createdAt,
+      }));
+
+      // 3. PENDING BANK PAYMENT PURCHASES (Initiated by this user)
+      const pendingPurchases = await GiftVoucherModel.find({
+        $or: [{ purchaserId: userId }, { purchaserEmail: userEmail }],
+        purchaseStatus: 'PENDING_PAYMENT',
+      }).sort({ createdAt: -1 });
 
       return res.status(200).json({
         success: true,
         data: {
-          issuedVouchers,
-          pendingPurchases,
+          issuedVouchers, // Only vouchers where authenticated customer is the recipient
+          purchasedGifts, // Gifts sent to other people (purchaser tracking)
+          pendingPurchases, // Pending bank deposit purchases
           totalIssued: issuedVouchers.length,
+          totalPurchasedGifts: purchasedGifts.length,
           totalPending: pendingPurchases.length,
           bankInstructions: BANK_PAYMENT_INSTRUCTIONS,
         },
@@ -177,7 +206,7 @@ export const giftVoucherController = {
       const { id } = req.params;
       const userId = req.user?.sub;
       const userRole = req.user?.role;
-      const userEmail = req.user?.email?.toLowerCase();
+      const userEmail = req.user?.email?.trim().toLowerCase();
 
       const voucher = await GiftVoucherModel.findById(id).populate(
         'purchaserId',
@@ -191,9 +220,12 @@ export const giftVoucherController = {
         });
       }
 
-      // Check authorization: must be purchaser, recipient, or admin
-      const isPurchaser = voucher.purchaserId?._id?.toString() === userId || voucher.purchaserId?.toString() === userId;
-      const isRecipient = voucher.recipientEmail.toLowerCase() === userEmail;
+      // Check authorization: must be recipient, purchaser, or admin
+      const isPurchaser =
+        voucher.purchaserId?._id?.toString() === userId ||
+        voucher.purchaserId?.toString() === userId ||
+        voucher.purchaserEmail?.trim().toLowerCase() === userEmail;
+      const isRecipient = voucher.recipientEmail.trim().toLowerCase() === userEmail;
       const isAdmin = userRole === 'ADMIN';
 
       if (!isPurchaser && !isRecipient && !isAdmin) {
@@ -208,11 +240,17 @@ export const giftVoucherController = {
         .sort({ redeemedAt: -1 })
         .populate('orderId', 'orderNumber finalTotal createdAt');
 
+      const voucherObj = voucher.toObject();
+      // Only the intended recipient and administrators can view the secret redeemable code
+      if (!isRecipient && !isAdmin) {
+        delete (voucherObj as any).code;
+      }
+
       return res.status(200).json({
         success: true,
         data: {
-          voucher,
-          redemptions,
+          voucher: voucherObj,
+          redemptions: isRecipient || isAdmin ? redemptions : [],
           bankInstructions: voucher.purchaseStatus === 'PENDING_PAYMENT' ? BANK_PAYMENT_INSTRUCTIONS : undefined,
         },
       });
@@ -228,8 +266,16 @@ export const giftVoucherController = {
   // 4. CHECKOUT / CUSTOMER: Validate Voucher Code for Checkout
   // POST /api/v1/vouchers/validate
   // =========================================================================
-  validateVoucher: async (req: Request, res: Response) => {
+  validateVoucher: async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const userEmail = req.user?.email?.trim().toLowerCase();
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required. Please sign in to apply a gift voucher.',
+        });
+      }
+
       const parsed = validateVoucherSchema.parse(req.body);
       const code = parsed.code.trim().toUpperCase();
       const orderSubtotal = parsed.orderSubtotal || 0;
@@ -243,7 +289,16 @@ export const giftVoucherController = {
         });
       }
 
-      // 2. Check payment & purchase status
+      // 2. RECIPIENT-ONLY REDEMPTION SECURITY CHECK
+      // Match the authenticated user's verified account email against the voucher's recipient email
+      if (voucher.recipientEmail.trim().toLowerCase() !== userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: 'This gift voucher is assigned to another recipient and cannot be redeemed using your account.',
+        });
+      }
+
+      // 3. Check payment & purchase status
       if (voucher.purchaseStatus !== 'COMPLETED' || voucher.paymentStatus !== 'PAID') {
         return res.status(400).json({
           success: false,
@@ -251,7 +306,7 @@ export const giftVoucherController = {
         });
       }
 
-      // 3. Check voucher status
+      // 4. Check voucher status
       if (voucher.status === 'REVOKED') {
         return res.status(400).json({
           success: false,
@@ -280,7 +335,7 @@ export const giftVoucherController = {
         });
       }
 
-      // 4. Check expiry date
+      // 5. Check expiry date
       if (voucher.expiresAt && new Date(voucher.expiresAt) < new Date()) {
         voucher.status = 'EXPIRED';
         await voucher.save();
@@ -290,7 +345,7 @@ export const giftVoucherController = {
         });
       }
 
-      // 5. Calculate applicable discount and remaining balance
+      // 6. Calculate applicable discount and remaining balance
       const applicableDiscount = Math.min(voucher.remainingBalance, orderSubtotal);
       const remainingPayable = Math.max(0, orderSubtotal - applicableDiscount);
       const newVoucherBalanceAfterRedemption = voucher.remainingBalance - applicableDiscount;

@@ -13,6 +13,7 @@ export interface IGiftVoucher extends Document {
   originalValue: number; // In LKR (Rs. 2,500, 5,000, 10,000, 15,000)
   remainingBalance: number; // In LKR
   purchaserId: Types.ObjectId | IUser;
+  purchaserEmail?: string;
   recipientName: string;
   recipientEmail: string;
   personalMessage?: string;
@@ -57,6 +58,12 @@ const giftVoucherSchema = new Schema<IGiftVoucher>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Purchaser user ID is required'],
+      index: true,
+    },
+    purchaserEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
       index: true,
     },
     recipientName: {

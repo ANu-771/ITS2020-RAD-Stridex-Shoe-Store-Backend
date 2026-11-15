@@ -181,6 +181,17 @@ export const orderController = {
           throw new Error(`Digital gift voucher code "${vCode}" is invalid or does not exist`);
         }
 
+        // RECIPIENT-ONLY REDEMPTION SECURITY:
+        // Authenticated customer's verified email must strictly match the voucher's recipientEmail
+        const authenticatedUserEmail = req.user?.email?.trim().toLowerCase();
+        if (!authenticatedUserEmail || voucher.recipientEmail.trim().toLowerCase() !== authenticatedUserEmail) {
+          const forbiddenErr: any = new Error(
+            'This gift voucher is assigned to another recipient and cannot be redeemed using your account.'
+          );
+          forbiddenErr.statusCode = 403;
+          throw forbiddenErr;
+        }
+
         if (voucher.purchaseStatus !== 'COMPLETED' || voucher.paymentStatus !== 'PAID') {
           throw new Error('This gift voucher is pending payment verification and cannot be redeemed yet');
         }
@@ -320,6 +331,13 @@ export const orderController = {
           $set: { status: 'ACTIVE' },
         }).catch((vRollbackErr) => {
           console.error('Critical: Failed to rollback voucher balance', vRollbackErr);
+        });
+      }
+
+      if (err.statusCode === 403) {
+        return res.status(403).json({
+          success: false,
+          message: err.message,
         });
       }
 
@@ -573,6 +591,13 @@ export const orderController = {
         data: order,
       });
     } catch (err: any) {
+      if (err.statusCode === 403) {
+        return res.status(403).json({
+          success: false,
+          message: err.message,
+        });
+      }
+
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -675,6 +700,13 @@ export const orderController = {
         data: order,
       });
     } catch (err: any) {
+      if (err.statusCode === 403) {
+        return res.status(403).json({
+          success: false,
+          message: err.message,
+        });
+      }
+
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -734,6 +766,13 @@ export const orderController = {
         data: order,
       });
     } catch (err: any) {
+      if (err.statusCode === 403) {
+        return res.status(403).json({
+          success: false,
+          message: err.message,
+        });
+      }
+
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
