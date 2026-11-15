@@ -19,9 +19,8 @@ async function runPhase7Tests() {
   await connectDB();
 
   const server = http.createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, resolve));
-  const address = server.address() as any;
-  const baseUrl = `http://localhost:${address.port}/api/v1`;
+  await new Promise<void>((resolve) => server.listen(7550, resolve));
+  const baseUrl = `http://127.0.0.1:7550/api/v1`;
   console.log(`📡 In-process test server running at ${baseUrl}`);
 
   let passed = 0;

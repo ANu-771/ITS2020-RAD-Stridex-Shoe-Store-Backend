@@ -9,7 +9,6 @@ import { StockMovementModel } from '../models/stockMovement.model';
 import {
   createOrderSchema,
   cancelOrderSchema,
-  simulatePaymentSchema,
   updateOrderStatusSchema,
   updatePaymentStatusSchema,
 } from '../validators/order.validator';
@@ -26,6 +25,13 @@ export const orderController = {
     try {
       const userId = req.user?.sub;
       const parsed = createOrderSchema.parse(req.body);
+
+      if (parsed.paymentMethod === 'ONLINE_CARD') {
+        return res.status(400).json({
+          success: false,
+          message: 'Visa, MasterCard and AMEX online payments are currently unavailable. Please select Cash on Delivery or Direct Bank Transfer.',
+        });
+      }
 
       // 1. Determine raw items to process
       let rawItems = parsed.items;
@@ -165,22 +171,19 @@ export const orderController = {
       const orderNumber = `STX-${datePart}-${randomPart}`;
 
       // 5. Determine initial order status and tracking timeline
-      const isOnlineCard = parsed.paymentMethod === 'ONLINE_CARD';
-      const initialOrderStatus: OrderStatus = isOnlineCard ? 'PENDING' : 'CONFIRMED';
+      const initialOrderStatus: OrderStatus = 'CONFIRMED';
       const initialTimeline = [
         {
           status: initialOrderStatus,
           timestamp: new Date(),
-          title: isOnlineCard
-            ? 'Order Placed (Online Card)'
-            : parsed.paymentMethod === 'CASH_ON_DELIVERY'
-            ? 'Order Confirmed (Cash on Delivery)'
-            : 'Order Placed (Bank Transfer)',
-          description: isOnlineCard
-            ? 'Order registered in STRIDEX. Awaiting online payment simulation.'
-            : parsed.paymentMethod === 'CASH_ON_DELIVERY'
-            ? 'Order confirmed and allocated from warehouse. Payment due in LKR upon delivery.'
-            : 'Order received. Awaiting bank transfer confirmation.',
+          title:
+            parsed.paymentMethod === 'CASH_ON_DELIVERY'
+              ? 'Order Confirmed (Cash on Delivery)'
+              : 'Order Placed (Bank Transfer)',
+          description:
+            parsed.paymentMethod === 'CASH_ON_DELIVERY'
+              ? 'Order confirmed and allocated from warehouse. Payment due in LKR upon delivery.'
+              : 'Order received. Awaiting bank transfer confirmation.',
         },
       ];
 
@@ -373,106 +376,12 @@ export const orderController = {
     }
   },
 
-  // POST /api/v1/orders/:id/pay - Demo / Simulated Online Payment
-  simulatePayment: async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const userId = req.user?.sub;
-      const role = req.user?.role;
-      const rawId = req.params.id;
-      const id = Array.isArray(rawId) ? rawId[0] : String(rawId || '');
-      const parsed = simulatePaymentSchema.parse(req.body);
-
-      const query: any = id.startsWith('STX-') ? { orderNumber: id.toUpperCase() } : { _id: id };
-      if (role !== 'ADMIN' && role !== 'INVENTORY_MANAGER') {
-        query.userId = userId;
-      }
-
-      const order = await OrderModel.findOne(query);
-      if (!order) {
-        return res.status(404).json({
-          success: false,
-          message: 'Order not found or unauthorized access',
-        });
-      }
-
-      if (order.orderStatus === 'CANCELLED') {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot process payment for a cancelled order',
-        });
-      }
-
-      const txnId = `TXN-SIM-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-      if (parsed.simulationResult === 'SUCCESS') {
-        order.paymentStatus = 'PAID';
-        if (order.orderStatus === 'PENDING') {
-          order.orderStatus = 'CONFIRMED';
-        }
-        order.paymentDetails = {
-          transactionId: txnId,
-          paidAt: new Date(),
-          simulatedStatus: 'SUCCESS',
-          note: `Simulated online payment approved (${parsed.cardBrand} •••• ${parsed.last4}). Demo mode.`,
-        };
-        order.trackingTimeline.push({
-          status: order.orderStatus,
-          timestamp: new Date(),
-          title: 'Payment Confirmed (Simulated)',
-          description: `Online card payment of Rs. ${order.finalTotal.toLocaleString()} successfully processed.`,
-        });
-      } else if (parsed.simulationResult === 'FAILED') {
-        order.paymentStatus = 'FAILED';
-        order.paymentDetails = {
-          transactionId: txnId,
-          simulatedStatus: 'FAILED',
-          note: parsed.notes || 'Simulated card payment declined (demo test)',
-        };
-        order.trackingTimeline.push({
-          status: order.orderStatus,
-          timestamp: new Date(),
-          title: 'Payment Failed (Simulated)',
-          description: 'Payment transaction failed in demo simulation. Customer may retry.',
-        });
-      } else {
-        order.paymentStatus = 'PENDING';
-        order.paymentDetails = {
-          transactionId: txnId,
-          simulatedStatus: 'PENDING',
-          note: 'Payment simulation pending authorization',
-        };
-        order.trackingTimeline.push({
-          status: order.orderStatus,
-          timestamp: new Date(),
-          title: 'Payment Pending',
-          description: 'Awaiting 3D Secure / simulated bank authorization.',
-        });
-      }
-
-      await order.save();
-
-      return res.status(200).json({
-        success: true,
-        message:
-          parsed.simulationResult === 'SUCCESS'
-            ? 'Payment simulation succeeded! Order confirmed.'
-            : parsed.simulationResult === 'FAILED'
-            ? 'Payment simulation failed as requested.'
-            : 'Payment simulation marked as pending.',
-        data: order,
-      });
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: err.issues.map((e: any) => e.message).join(', '),
-        });
-      }
-      return res.status(500).json({
-        success: false,
-        message: err.message || 'Payment simulation failed',
-      });
-    }
+  // POST /api/v1/orders/:id/pay - Retired Simulated Online Payment Gateway
+  simulatePayment: async (_req: AuthenticatedRequest, res: Response) => {
+    return res.status(400).json({
+      success: false,
+      message: 'Simulated online payment gateway has been retired. Online card payments are currently unavailable.',
+    });
   },
 
   // POST /api/v1/orders/:id/cancel - Customer or Admin Order Cancellation with Safe Stock Restoration
@@ -543,6 +452,14 @@ export const orderController = {
         title: 'Order Cancelled',
         description: `Order cancelled (${order.cancellationReason}). Reserved footwear stock restored to warehouse inventory.`,
       });
+
+      // Backward-compatibility guarantee for older orders
+      if (!order.deliveryAddress && order.customerDetails?.deliveryAddress) {
+        order.deliveryAddress = order.customerDetails.deliveryAddress;
+      }
+      if (order.totalAmount === undefined && order.finalTotal !== undefined) {
+        order.totalAmount = order.finalTotal;
+      }
 
       await order.save();
 
@@ -637,6 +554,14 @@ export const orderController = {
         title: `Status changed to ${newStatus}`,
         description: parsed.note || `Order marked as ${newStatus} by administrator.`,
       });
+
+      // Backward-compatibility guarantee for older orders
+      if (!order.deliveryAddress && order.customerDetails?.deliveryAddress) {
+        order.deliveryAddress = order.customerDetails.deliveryAddress;
+      }
+      if (order.totalAmount === undefined && order.finalTotal !== undefined) {
+        order.totalAmount = order.finalTotal;
+      }
 
       await order.save();
 
