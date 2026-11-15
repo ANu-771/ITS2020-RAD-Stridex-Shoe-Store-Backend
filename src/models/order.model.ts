@@ -53,6 +53,9 @@ export interface IOrder extends Document {
   deliveryFee: number; // In LKR
   totalAmount: number; // In LKR
   finalTotal: number; // In LKR (alias of totalAmount)
+  voucherDiscount?: number; // In LKR redeemed via digital gift voucher
+  voucherCode?: string; // Digital voucher code used
+  voucherId?: Types.ObjectId; // Reference to GiftVoucher
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
@@ -206,6 +209,20 @@ const orderSchema = new Schema<IOrder>(
       type: Number,
       required: [true, 'Final total in LKR is required'],
       min: [0, 'Final total cannot be negative'],
+    },
+    voucherDiscount: {
+      type: Number,
+      min: [0, 'Voucher discount cannot be negative'],
+      default: 0,
+    },
+    voucherCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
+    voucherId: {
+      type: Schema.Types.ObjectId,
+      ref: 'GiftVoucher',
     },
     paymentMethod: {
       type: String,

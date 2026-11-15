@@ -6,6 +6,8 @@ import { CartModel } from '../models/cart.model';
 import { ProductModel } from '../models/product.model';
 import { ProductVariantModel } from '../models/productVariant.model';
 import { StockMovementModel } from '../models/stockMovement.model';
+import { GiftVoucherModel } from '../models/giftVoucher.model';
+import { VoucherRedemptionModel } from '../models/voucherRedemption.model';
 import {
   createOrderSchema,
   cancelOrderSchema,
@@ -21,6 +23,8 @@ export const orderController = {
   createOrder: async (req: AuthenticatedRequest, res: Response) => {
     // Keep track of successfully decremented variants for atomic rollback in case of concurrency conflict
     const decrementedVariants: Array<{ variantId: string; quantity: number }> = [];
+    let redeemedVoucherId: string | null = null;
+    let redeemedVoucherAmount = 0;
 
     try {
       const userId = req.user?.sub;
@@ -161,16 +165,82 @@ export const orderController = {
         });
       }
 
-      // 3. Compute delivery fee and final total strictly in Sri Lankan Rupees (LKR)
+      // 3. Compute delivery fee strictly in Sri Lankan Rupees (LKR)
       const deliveryFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_DELIVERY_FEE;
-      const finalTotal = subtotal + deliveryFee;
+      let calculatedTotal = subtotal + deliveryFee;
 
-      // 4. Generate unique human-readable Order Number (e.g. STX-20261114-8392)
+      // 4. Validate and apply Digital Gift Voucher if provided
+      let appliedVoucher: any = null;
+      let voucherDiscount = 0;
+
+      if (parsed.voucherCode && parsed.voucherCode.trim()) {
+        const vCode = parsed.voucherCode.trim().toUpperCase();
+        const voucher = await GiftVoucherModel.findOne({ code: vCode });
+
+        if (!voucher) {
+          throw new Error(`Digital gift voucher code "${vCode}" is invalid or does not exist`);
+        }
+
+        if (voucher.purchaseStatus !== 'COMPLETED' || voucher.paymentStatus !== 'PAID') {
+          throw new Error('This gift voucher is pending payment verification and cannot be redeemed yet');
+        }
+
+        if (voucher.status === 'REVOKED') {
+          throw new Error(`This gift voucher has been revoked: ${voucher.revocationReason || 'Contact customer support'}`);
+        }
+
+        if (voucher.status === 'EXPIRED' || (voucher.expiresAt && new Date(voucher.expiresAt) < new Date())) {
+          throw new Error('This gift voucher has expired');
+        }
+
+        if (voucher.status === 'USED' || voucher.remainingBalance <= 0) {
+          throw new Error('This gift voucher has already been fully redeemed (remaining balance: Rs. 0.00)');
+        }
+
+        if (voucher.status !== 'ACTIVE') {
+          throw new Error(`This gift voucher is not active (current status: ${voucher.status})`);
+        }
+
+        // Calculate applicable discount
+        voucherDiscount = Math.min(voucher.remainingBalance, calculatedTotal);
+        calculatedTotal = Math.max(0, calculatedTotal - voucherDiscount);
+
+        // Atomically deduct the balance from the voucher to prevent double spending
+        const updatedVoucher = await GiftVoucherModel.findOneAndUpdate(
+          {
+            _id: voucher._id,
+            status: 'ACTIVE',
+            remainingBalance: { $gte: voucherDiscount },
+          },
+          {
+            $inc: { remainingBalance: -voucherDiscount },
+          },
+          { new: true }
+        );
+
+        if (!updatedVoucher) {
+          throw new Error('Concurrent voucher balance redemption detected. Please try placing your order again.');
+        }
+
+        // If remaining balance reached 0, transition voucher status to USED
+        if (updatedVoucher.remainingBalance <= 0) {
+          updatedVoucher.status = 'USED';
+          await updatedVoucher.save();
+        }
+
+        appliedVoucher = updatedVoucher;
+        redeemedVoucherId = voucher._id.toString();
+        redeemedVoucherAmount = voucherDiscount;
+      }
+
+      const finalTotal = calculatedTotal;
+
+      // 5. Generate unique human-readable Order Number (e.g. STX-20261114-8392)
       const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const randomPart = Math.floor(1000 + Math.random() * 9000);
       const orderNumber = `STX-${datePart}-${randomPart}`;
 
-      // 5. Determine initial order status and tracking timeline
+      // 6. Determine initial order status and tracking timeline
       const initialOrderStatus: OrderStatus = 'CONFIRMED';
       const initialTimeline = [
         {
@@ -187,7 +257,7 @@ export const orderController = {
         },
       ];
 
-      // 6. Create Order document in MongoDB Atlas
+      // 7. Create Order document in MongoDB Atlas
       const order = await OrderModel.create({
         orderNumber,
         userId,
@@ -198,6 +268,9 @@ export const orderController = {
         deliveryFee,
         totalAmount: finalTotal,
         finalTotal,
+        voucherDiscount,
+        voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+        voucherId: appliedVoucher ? appliedVoucher._id : undefined,
         paymentMethod: parsed.paymentMethod,
         paymentStatus: 'PENDING',
         orderStatus: initialOrderStatus,
@@ -205,7 +278,20 @@ export const orderController = {
         trackingTimeline: initialTimeline,
       });
 
-      // 7. Clear customer's cart in MongoDB after successful order
+      // 8. Record in VoucherRedemption collection if voucher was redeemed
+      if (appliedVoucher && voucherDiscount > 0) {
+        await VoucherRedemptionModel.create({
+          voucherId: appliedVoucher._id,
+          customerId: userId,
+          orderId: order._id,
+          amountRedeemed: voucherDiscount,
+          redeemedAt: new Date(),
+        }).catch((redErr) => {
+          console.error('Warning: Failed to create VoucherRedemption record:', redErr);
+        });
+      }
+
+      // 9. Clear customer's cart in MongoDB after successful order
       if (userId) {
         await CartModel.findOneAndUpdate({ userId }, { $set: { items: [] } }).catch(() => {});
       }
@@ -225,6 +311,16 @@ export const orderController = {
             console.error('Critical: Failed to rollback variant stock', rollbackErr);
           });
         }
+      }
+
+      // ATOMIC ROLLBACK: Restore redeemed voucher balance if order failed
+      if (redeemedVoucherId && redeemedVoucherAmount > 0) {
+        await GiftVoucherModel.findByIdAndUpdate(redeemedVoucherId, {
+          $inc: { remainingBalance: redeemedVoucherAmount },
+          $set: { status: 'ACTIVE' },
+        }).catch((vRollbackErr) => {
+          console.error('Critical: Failed to rollback voucher balance', vRollbackErr);
+        });
       }
 
       if (err instanceof z.ZodError) {
@@ -441,6 +537,14 @@ export const orderController = {
           }
         }
         order.stockRestored = true;
+      }
+
+      // SAFE ATOMIC VOUCHER BALANCE RESTORATION
+      if (order.voucherId && order.voucherDiscount && order.voucherDiscount > 0) {
+        await GiftVoucherModel.findByIdAndUpdate(order.voucherId, {
+          $inc: { remainingBalance: order.voucherDiscount },
+          $set: { status: 'ACTIVE' },
+        }).catch((vErr) => console.error('Failed to restore voucher balance on order cancellation:', vErr));
       }
 
       order.orderStatus = 'CANCELLED';

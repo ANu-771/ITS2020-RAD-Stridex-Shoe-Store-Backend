@@ -15,6 +15,7 @@ import InventoryRouter from "./routes/inventory.routers"
 import AdminDashboardRouter from "./routes/adminDashboard.routers"
 import CouponRouter from "./routes/coupon.routers"
 import ReviewRouter from "./routes/review.routers"
+import GiftVoucherRouter from "./routes/giftVoucher.routers"
 import { errorHandler, notFoundHandler } from "./middleware/error"
 
 const app: Application = express()
@@ -74,6 +75,8 @@ app.use("/api/v1/inventory", InventoryRouter)
 app.use("/api/v1/admin", AdminDashboardRouter)
 app.use("/api/v1/coupons", CouponRouter)
 app.use("/api/v1/reviews", ReviewRouter)
+app.use("/api/v1/vouchers", GiftVoucherRouter)
+app.use("/api/v1/admin/vouchers", GiftVoucherRouter)
 
 // 404 & Centralized Error Handlers
 app.use(notFoundHandler)

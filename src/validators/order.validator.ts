@@ -26,6 +26,7 @@ export const createOrderSchema = z.object({
       })
     )
     .optional(),
+  voucherCode: z.string().trim().optional(),
   paymentMethod: z.enum(['CASH_ON_DELIVERY', 'ONLINE_CARD', 'BANK_TRANSFER']).default('CASH_ON_DELIVERY'),
 });
 
