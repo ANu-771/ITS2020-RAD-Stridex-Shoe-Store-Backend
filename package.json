@@ -1,5 +1,5 @@
 {
-  "name": "Velora",
+  "name": "Stridex",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -11,6 +11,8 @@
     "seed:catalog": "tsx src/scripts/seedCatalog.ts",
     "test:supabase": "tsx src/scripts/testSupabaseUploadFlow.ts",
     "test:phase5": "tsx src/scripts/testPhase5CartAndCheckout.ts",
+    "test:phase6": "tsx src/scripts/testPhase6OrderAndPayment.ts",
+    "test:phase7": "tsx src/scripts/testPhase7InventoryAndAdmin.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

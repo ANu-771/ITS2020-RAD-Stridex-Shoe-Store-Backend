@@ -8,6 +8,7 @@ export interface IProductVariant extends Document {
   color: string;
   stockQuantity: number;
   reservedQuantity: number;
+  minStockThreshold: number; // Configurable minimum stock alert threshold (default: 5)
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -48,6 +49,11 @@ const productVariantSchema = new Schema<IProductVariant>(
       type: Number,
       min: [0, 'Reserved quantity cannot be negative'],
       default: 0,
+    },
+    minStockThreshold: {
+      type: Number,
+      min: [0, 'Minimum stock threshold cannot be negative'],
+      default: 5,
     },
     isActive: {
       type: Boolean,

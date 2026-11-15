@@ -5,6 +5,7 @@ import { OrderModel, OrderStatus } from '../models/order.model';
 import { CartModel } from '../models/cart.model';
 import { ProductModel } from '../models/product.model';
 import { ProductVariantModel } from '../models/productVariant.model';
+import { StockMovementModel } from '../models/stockMovement.model';
 import {
   createOrderSchema,
   cancelOrderSchema,
