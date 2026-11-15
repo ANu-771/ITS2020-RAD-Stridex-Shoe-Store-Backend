@@ -11,6 +11,13 @@ export const wishlistController = {
   getWishlist: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to access saved shoes',
+        });
+      }
+
       let wishlist = await WishlistModel.findOne({ userId }).populate({
         path: 'products',
         populate: [
@@ -44,6 +51,13 @@ export const wishlistController = {
   toggleWishlist: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to save shoes',
+        });
+      }
+
       const { productId } = toggleWishlistSchema.parse(req.body);
 
       const product = await ProductModel.findById(productId);
@@ -94,6 +108,13 @@ export const wishlistController = {
   removeFromWishlist: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to remove saved shoes',
+        });
+      }
+
       const { productId } = req.params;
 
       const wishlist = await WishlistModel.findOne({ userId });
@@ -124,6 +145,13 @@ export const wishlistController = {
   moveToCart: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to move shoe to bag',
+        });
+      }
+
       const { productId } = req.params;
 
       const product = await ProductModel.findById(productId);
@@ -196,6 +224,13 @@ export const wishlistController = {
   syncWishlist: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to synchronize saved shoes',
+        });
+      }
+
       const { productIds } = syncWishlistSchema.parse(req.body);
 
       let wishlist = await WishlistModel.findOne({ userId });

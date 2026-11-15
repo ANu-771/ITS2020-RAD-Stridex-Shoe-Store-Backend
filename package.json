@@ -15,6 +15,7 @@
     "test:phase7": "tsx src/scripts/testPhase7InventoryAndAdmin.ts",
     "test:vouchers": "tsx src/scripts/testDigitalGiftVoucher.ts",
     "test:ai": "tsx src/scripts/testAiChatbot.ts",
+    "test:isolation": "tsx src/scripts/testCartWishlistIsolation.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

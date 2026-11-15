@@ -68,6 +68,13 @@ export const cartController = {
   getCart: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to access shopping cart',
+        });
+      }
+
       let cart = await CartModel.findOne({ userId })
         .populate({
           path: 'items.productId',
@@ -97,6 +104,13 @@ export const cartController = {
   addToCart: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to add items to bag',
+        });
+      }
+
       const parsed = addToCartSchema.parse(req.body);
 
       // 1. Verify Product exists and is active
@@ -223,6 +237,13 @@ export const cartController = {
   updateItemQuantity: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to update bag items',
+        });
+      }
+
       const { itemId } = req.params;
       const { quantity } = updateCartItemSchema.parse(req.body);
 
@@ -281,11 +302,24 @@ export const cartController = {
   removeItem: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
-      const { itemId } = req.params;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to remove items from bag',
+        });
+      }
 
+      const { itemId } = req.params;
       const cart = await CartModel.findOne({ userId });
       if (!cart) {
         return res.status(404).json({ success: false, message: 'Cart not found' });
+      }
+
+      const itemExists = cart.items.some(
+        (i) => i._id?.toString() === itemId || i.variantId.toString() === itemId
+      );
+      if (!itemExists) {
+        return res.status(404).json({ success: false, message: 'Item not found in your bag' });
       }
 
       cart.items = cart.items.filter(
@@ -320,6 +354,13 @@ export const cartController = {
   clearCart: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to clear bag',
+        });
+      }
+
       await CartModel.findOneAndUpdate({ userId }, { $set: { items: [] } }, { upsert: true });
 
       return res.status(200).json({
@@ -346,6 +387,13 @@ export const cartController = {
   syncCart: async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required to synchronize bag',
+        });
+      }
+
       const { items } = syncCartSchema.parse(req.body);
 
       let cart = await CartModel.findOne({ userId });
