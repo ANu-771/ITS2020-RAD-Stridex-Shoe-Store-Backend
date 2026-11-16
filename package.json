@@ -18,6 +18,7 @@
     "test:isolation": "tsx src/scripts/testCartWishlistIsolation.ts",
     "test:forgot-password": "tsx src/scripts/testForgotPasswordOtp.ts",
     "test:order-emails": "tsx src/scripts/testOrderEmailNotifications.ts",
+    "test:admin-users": "tsx src/scripts/testAdminUserManagement.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

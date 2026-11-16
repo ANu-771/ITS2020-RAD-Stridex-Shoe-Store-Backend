@@ -1,6 +1,7 @@
 import { Response, NextFunction } from "express"
 import { AuthenticatedRequest } from "../types"
 import { verifyAccessToken } from "../util/jwt"
+import { UserModel } from "../models/user.model"
 
 export const authenticate = async (
   req: AuthenticatedRequest,
@@ -20,7 +21,28 @@ export const authenticate = async (
 
   try {
     const payload = verifyAccessToken(token)
-    req.user = payload
+
+    // Verify live user existence and active status in MongoDB
+    const liveUser = await UserModel.findById(payload.sub).select("role isActive email fullName")
+    if (!liveUser) {
+      return res.status(401).json({
+        success: false,
+        message: "User account no longer exists",
+      })
+    }
+
+    if (!liveUser.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Please contact support.",
+      })
+    }
+
+    // Attach updated live user permissions and attributes to request
+    req.user = {
+      ...payload,
+      role: liveUser.role,
+    }
     next()
   } catch (err: any) {
     if (err.name === "TokenExpiredError") {
