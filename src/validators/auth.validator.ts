@@ -35,6 +35,31 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string().optional(),
 })
 
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .email("Invalid email address format")
+    .toLowerCase()
+    .trim(),
+})
+
+export const resetPasswordSchema = z.object({
+  email: z
+    .string()
+    .email("Invalid email address format")
+    .toLowerCase()
+    .trim(),
+  otp: z
+    .string()
+    .regex(/^\d{6}$/, "OTP must be a 6-digit numeric code"),
+  newPassword: z
+    .string()
+    .min(6, "Password must be at least 6 characters long")
+    .max(100, "Password cannot exceed 100 characters"),
+})
+
 export type RegisterInput = z.infer<typeof registerSchema>
 export type LoginInput = z.infer<typeof loginSchema>
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>

@@ -16,6 +16,7 @@
     "test:vouchers": "tsx src/scripts/testDigitalGiftVoucher.ts",
     "test:ai": "tsx src/scripts/testAiChatbot.ts",
     "test:isolation": "tsx src/scripts/testCartWishlistIsolation.ts",
+    "test:forgot-password": "tsx src/scripts/testForgotPasswordOtp.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -29,6 +30,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.3.0",
     "@types/node": "^22.20.2",
+    "@types/nodemailer": "^8.0.2",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   },
@@ -43,6 +45,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.1",
     "multer": "^2.4.0",
+    "nodemailer": "^10.6.0",
     "zod": "^4.6.7"
   }
 }
