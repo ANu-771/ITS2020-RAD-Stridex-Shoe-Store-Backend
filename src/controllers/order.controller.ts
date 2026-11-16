@@ -9,6 +9,11 @@ import { StockMovementModel } from '../models/stockMovement.model';
 import { GiftVoucherModel } from '../models/giftVoucher.model';
 import { VoucherRedemptionModel } from '../models/voucherRedemption.model';
 import {
+  sendOrderConfirmationEmail,
+  sendOrderStatusEmail,
+  sendPaymentConfirmationEmail,
+} from '../service/email.service';
+import {
   createOrderSchema,
   cancelOrderSchema,
   updateOrderStatusSchema,
@@ -307,10 +312,23 @@ export const orderController = {
         await CartModel.findOneAndUpdate({ userId }, { $set: { items: [] } }).catch(() => {});
       }
 
+      // 10. Trigger Order Confirmation Email (Failure never rolls back a placed order)
+      let emailSent = false;
+      try {
+        const emailResult = await sendOrderConfirmationEmail(order);
+        emailSent = emailResult.success;
+      } catch (emailErr: any) {
+        console.error(
+          `[Order Email] Non-fatal error sending confirmation for order #${order.orderNumber}:`,
+          emailErr.message
+        );
+      }
+
       return res.status(201).json({
         success: true,
         message: 'Order placed successfully! Thank you for shopping with STRIDEX.',
         data: order,
+        emailSent,
       });
     } catch (err: any) {
       // ATOMIC ROLLBACK: Restore stock for all variants successfully decremented prior to failure
@@ -585,6 +603,16 @@ export const orderController = {
 
       await order.save();
 
+      // Trigger Order Cancellation Email notification
+      try {
+        await sendOrderStatusEmail(order, 'CONFIRMED', order.cancellationReason);
+      } catch (emailErr: any) {
+        console.error(
+          `[Order Email] Non-fatal error sending cancellation email for order #${order.orderNumber}:`,
+          emailErr.message
+        );
+      }
+
       return res.status(200).json({
         success: true,
         message: 'Order cancelled successfully and inventory stock restored.',
@@ -694,6 +722,16 @@ export const orderController = {
 
       await order.save();
 
+      // Trigger Order Status Update Email notification
+      try {
+        await sendOrderStatusEmail(order, previousStatus, parsed.note);
+      } catch (emailErr: any) {
+        console.error(
+          `[Order Email] Non-fatal error sending status email for order #${order.orderNumber}:`,
+          emailErr.message
+        );
+      }
+
       return res.status(200).json({
         success: true,
         message: `Order status updated to ${newStatus}`,
@@ -759,6 +797,18 @@ export const orderController = {
       });
 
       await order.save();
+
+      // Trigger Payment Confirmation Email if transitioned to PAID
+      if (previousStatus !== 'PAID' && parsed.paymentStatus === 'PAID') {
+        try {
+          await sendPaymentConfirmationEmail(order, parsed.note);
+        } catch (emailErr: any) {
+          console.error(
+            `[Order Email] Non-fatal error sending payment confirmation for order #${order.orderNumber}:`,
+            emailErr.message
+          );
+        }
+      }
 
       return res.status(200).json({
         success: true,

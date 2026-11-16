@@ -4,6 +4,10 @@ import { ProductVariantModel } from '../models/productVariant.model';
 import { BrandModel } from '../models/brand.model';
 import { CategoryModel } from '../models/category.model';
 
+// Ensure Mongoose models are explicitly referenced so schemas are registered
+void BrandModel;
+void CategoryModel;
+
 export interface LiveProductSummary {
   id: string;
   name: string;

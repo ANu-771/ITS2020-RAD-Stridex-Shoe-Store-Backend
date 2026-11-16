@@ -1,4 +1,10 @@
 import nodemailer from 'nodemailer';
+import { IOrder } from '../models/order.model';
+import {
+  generateOrderConfirmationEmail,
+  generateOrderStatusUpdateEmail,
+  generatePaymentConfirmationEmail,
+} from './orderEmailTemplates';
 
 // In-memory test store used ONLY during automated testing to retrieve OTPs without console logging
 const testOtpStore = new Map<string, string>();
@@ -9,6 +15,28 @@ export const getTestOtp = (email: string): string | undefined => {
 
 export const clearTestOtp = (email: string): void => {
   testOtpStore.delete(email.toLowerCase().trim());
+};
+
+// In-memory test store for dispatched order emails during testing
+export interface SentOrderEmailRecord {
+  type: 'ORDER_CONFIRMATION' | 'ORDER_STATUS_UPDATE' | 'PAYMENT_CONFIRMATION';
+  email: string;
+  orderNumber: string;
+  subject: string;
+  orderStatus: string;
+  previousStatus?: string;
+  finalTotal: number;
+  itemsCount: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  timestamp: Date;
+}
+
+const sentOrderEmails: SentOrderEmailRecord[] = [];
+
+export const getSentOrderEmails = (): SentOrderEmailRecord[] => [...sentOrderEmails];
+export const clearSentOrderEmails = (): void => {
+  sentOrderEmails.length = 0;
 };
 
 /**
@@ -174,5 +202,190 @@ Step Into Your Style.`;
       `[Email Service] Password reset verification code dispatched to: ${normalizedEmail} (SMTP not configured, simulated)`
     );
     return { success: true, messageId: 'simulated-local-dispatch' };
+  }
+};
+
+/**
+ * Sends Order Confirmation Email upon successful order placement.
+ * Guaranteed never to throw errors or roll back an order if SMTP fails.
+ */
+export const sendOrderConfirmationEmail = async (
+  order: IOrder
+): Promise<{ success: boolean; messageId?: string }> => {
+  const recipientEmail = order.customerDetails?.email?.toLowerCase().trim();
+  if (!recipientEmail) {
+    console.warn(`[Email Service] No recipient email found for order #${order.orderNumber}`);
+    return { success: false };
+  }
+
+  const { subject, html, text } = generateOrderConfirmationEmail(order);
+
+  // Record dispatch in test store
+  sentOrderEmails.push({
+    type: 'ORDER_CONFIRMATION',
+    email: recipientEmail,
+    orderNumber: order.orderNumber,
+    subject,
+    orderStatus: order.orderStatus,
+    finalTotal: order.finalTotal,
+    itemsCount: order.items?.length || 0,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    timestamp: new Date(),
+  });
+
+  const fromAddress =
+    process.env.SMTP_FROM || '"STRIDEX Customer Care" <noreply@stridex.com>';
+  const transporter = getTransporter();
+
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to: recipientEmail,
+        subject,
+        text,
+        html,
+      });
+      console.log(
+        `[Email Service] Order confirmation email successfully sent for #${order.orderNumber} to ${recipientEmail} (ID: ${info.messageId})`
+      );
+      return { success: true, messageId: info.messageId };
+    } catch (err: any) {
+      console.error(
+        `[Email Service] Failed to send order confirmation email via SMTP to ${recipientEmail}:`,
+        err.message
+      );
+      return { success: false };
+    }
+  } else {
+    console.log(
+      `[Email Service] Order confirmation email dispatched for #${order.orderNumber} to: ${recipientEmail} (SMTP not configured, simulated)`
+    );
+    return { success: true, messageId: 'simulated-order-confirmation' };
+  }
+};
+
+/**
+ * Sends Order Status Update Email when an order status changes (e.g. Processing, Shipped, Delivered, Cancelled).
+ */
+export const sendOrderStatusEmail = async (
+  order: IOrder,
+  previousStatus: string,
+  note?: string
+): Promise<{ success: boolean; messageId?: string }> => {
+  const recipientEmail = order.customerDetails?.email?.toLowerCase().trim();
+  if (!recipientEmail) {
+    console.warn(`[Email Service] No recipient email found for order #${order.orderNumber}`);
+    return { success: false };
+  }
+
+  const { subject, html, text } = generateOrderStatusUpdateEmail(order, previousStatus, note);
+
+  // Record dispatch in test store
+  sentOrderEmails.push({
+    type: 'ORDER_STATUS_UPDATE',
+    email: recipientEmail,
+    orderNumber: order.orderNumber,
+    subject,
+    orderStatus: order.orderStatus,
+    previousStatus,
+    finalTotal: order.finalTotal,
+    itemsCount: order.items?.length || 0,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    timestamp: new Date(),
+  });
+
+  const fromAddress =
+    process.env.SMTP_FROM || '"STRIDEX Customer Care" <noreply@stridex.com>';
+  const transporter = getTransporter();
+
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to: recipientEmail,
+        subject,
+        text,
+        html,
+      });
+      console.log(
+        `[Email Service] Order status email (${order.orderStatus}) successfully sent for #${order.orderNumber} to ${recipientEmail}`
+      );
+      return { success: true, messageId: info.messageId };
+    } catch (err: any) {
+      console.error(
+        `[Email Service] Failed to send order status email to ${recipientEmail}:`,
+        err.message
+      );
+      return { success: false };
+    }
+  } else {
+    console.log(
+      `[Email Service] Order status email (${order.orderStatus}) dispatched for #${order.orderNumber} to: ${recipientEmail} (SMTP not configured, simulated)`
+    );
+    return { success: true, messageId: 'simulated-order-status' };
+  }
+};
+
+/**
+ * Sends Payment Confirmation Email when a Bank Transfer is verified by Administrator.
+ */
+export const sendPaymentConfirmationEmail = async (
+  order: IOrder,
+  note?: string
+): Promise<{ success: boolean; messageId?: string }> => {
+  const recipientEmail = order.customerDetails?.email?.toLowerCase().trim();
+  if (!recipientEmail) {
+    console.warn(`[Email Service] No recipient email found for order #${order.orderNumber}`);
+    return { success: false };
+  }
+
+  const { subject, html, text } = generatePaymentConfirmationEmail(order, note);
+
+  // Record dispatch in test store
+  sentOrderEmails.push({
+    type: 'PAYMENT_CONFIRMATION',
+    email: recipientEmail,
+    orderNumber: order.orderNumber,
+    subject,
+    orderStatus: order.orderStatus,
+    finalTotal: order.finalTotal,
+    itemsCount: order.items?.length || 0,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    timestamp: new Date(),
+  });
+
+  const fromAddress =
+    process.env.SMTP_FROM || '"STRIDEX Customer Care" <noreply@stridex.com>';
+  const transporter = getTransporter();
+
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to: recipientEmail,
+        subject,
+        text,
+        html,
+      });
+      console.log(
+        `[Email Service] Payment confirmation email successfully sent for #${order.orderNumber} to ${recipientEmail}`
+      );
+      return { success: true, messageId: info.messageId };
+    } catch (err: any) {
+      console.error(
+        `[Email Service] Failed to send payment confirmation email to ${recipientEmail}:`,
+        err.message
+      );
+      return { success: false };
+    }
+  } else {
+    console.log(
+      `[Email Service] Payment confirmation email dispatched for #${order.orderNumber} to: ${recipientEmail} (SMTP not configured, simulated)`
+    );
+    return { success: true, messageId: 'simulated-payment-confirmation' };
   }
 };
