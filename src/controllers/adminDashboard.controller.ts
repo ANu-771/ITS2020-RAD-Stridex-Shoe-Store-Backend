@@ -293,7 +293,7 @@ export const adminDashboardController = {
         0
       );
       const averageOrderValue = paidOrders.length > 0 ? Math.round(totalSalesRevenue / paidOrders.length) : 0;
-      const totalDiscountsGiven = paidOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+      const totalDiscountsGiven = paidOrders.reduce((sum, o) => sum + (o.voucherDiscount || 0), 0);
 
       // 2. Pending Unpaid Orders
       const pendingOrders = orders.filter(
