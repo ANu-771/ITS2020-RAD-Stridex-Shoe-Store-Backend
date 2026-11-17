@@ -441,11 +441,26 @@ export const orderController = {
       const paymentStatus = req.query.paymentStatus as string;
       const paymentMethod = req.query.paymentMethod as string;
       const search = (req.query.search as string || '').trim();
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
 
       const query: any = {};
       if (status && status !== 'ALL') query.orderStatus = status;
       if (paymentStatus && paymentStatus !== 'ALL') query.paymentStatus = paymentStatus;
       if (paymentMethod && paymentMethod !== 'ALL') query.paymentMethod = paymentMethod;
+
+      if (startDate || endDate) {
+        const dateQuery: any = {};
+        if (startDate) {
+          const s = new Date(startDate);
+          if (!isNaN(s.getTime())) dateQuery.$gte = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0, 0);
+        }
+        if (endDate) {
+          const e = new Date(endDate);
+          if (!isNaN(e.getTime())) dateQuery.$lte = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59, 999);
+        }
+        query.createdAt = dateQuery;
+      }
 
       if (search) {
         query.$or = [
@@ -464,10 +479,10 @@ export const orderController = {
         .limit(limit)
         .populate('userId', 'fullName email');
 
-      // Calculate overview metrics for dashboard
+      // Calculate overview metrics for dashboard (Strict: PAID and NON-CANCELLED only)
       const allOrders = await OrderModel.find({}, 'orderStatus paymentStatus paymentMethod finalTotal');
       const totalRevenue = allOrders
-        .filter((o) => o.paymentStatus === 'PAID')
+        .filter((o) => o.paymentStatus === 'PAID' && o.orderStatus !== 'CANCELLED')
         .reduce((sum, o) => sum + (o.finalTotal || 0), 0);
       const pendingCount = allOrders.filter((o) => o.orderStatus === 'PENDING').length;
       const confirmedCount = allOrders.filter((o) => o.orderStatus === 'CONFIRMED').length;

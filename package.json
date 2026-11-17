@@ -19,6 +19,7 @@
     "test:forgot-password": "tsx src/scripts/testForgotPasswordOtp.ts",
     "test:order-emails": "tsx src/scripts/testOrderEmailNotifications.ts",
     "test:admin-users": "tsx src/scripts/testAdminUserManagement.ts",
+    "test:phase8": "tsx src/scripts/testPhase8AdminReports.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
