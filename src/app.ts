@@ -38,8 +38,9 @@ app.use(cookieParser())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// Static file serving for uploads
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")))
+// Static file serving for assets & legacy uploads path
+app.use("/assets", express.static(path.join(__dirname, "../assets")))
+app.use("/uploads", express.static(path.join(__dirname, "../assets")))
 
 // Health check endpoint (compatible with both UptimeRobot and Axios baseURL)
 app.get(["/api/health", "/api/v1/health"], (_req: Request, res: Response) => {
