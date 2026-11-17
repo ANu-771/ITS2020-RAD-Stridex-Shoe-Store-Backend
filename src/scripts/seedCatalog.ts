@@ -60,23 +60,38 @@ const seedCatalog = async () => {
     const categoryData = [
       {
         name: 'Performance Running',
-        description: 'Engineered for marathons, sprints, and long-distance road runs with maximum energy return.',
+        description: 'Engineered for speed, built for distance with responsive energy return.',
         image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=80',
+        badge: 'Popular',
+        isFeatured: true,
       },
       {
         name: 'Street & Casual Sneakers',
-        description: 'Iconic low-top and high-top sneakers designed for street style and daily comfort.',
+        description: 'Iconic silhouettes crafted for all-day comfort and trendsetting aesthetics.',
         image: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=700&q=80',
+        badge: 'Trending',
+        isFeatured: true,
       },
       {
         name: 'Executive & Formal',
-        description: 'Handcrafted leather shoes, oxfords, and loafers for executive and formal occasions.',
+        description: 'Refined leather classics meticulously crafted for timeless sophistication.',
         image: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=700&q=80',
+        badge: 'Premium',
+        isFeatured: true,
+      },
+      {
+        name: 'Limited Release Drops',
+        description: 'Rare collector sneakers and exclusive designer athletic collaborations.',
+        image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=700&q=80',
+        badge: 'Exclusive',
+        isFeatured: true,
       },
       {
         name: 'Training & Gym',
         description: 'High-stability trainers providing lockdown support for cross-training and weightlifting.',
         image: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=700&q=80',
+        badge: 'Athletic',
+        isFeatured: true,
       },
     ];
 
@@ -90,9 +105,18 @@ const seedCatalog = async () => {
           slug,
           description: c.description,
           image: c.image,
+          badge: c.badge,
+          isFeatured: c.isFeatured,
           isActive: true,
         });
         console.log(`+ Category created: ${cat.name}`);
+      } else {
+        cat.badge = c.badge;
+        cat.isFeatured = c.isFeatured;
+        if (c.description) cat.description = c.description;
+        if (c.image) cat.image = c.image;
+        await cat.save();
+        console.log(`~ Category synced: ${cat.name}`);
       }
       seededCategories[c.name] = cat;
     }

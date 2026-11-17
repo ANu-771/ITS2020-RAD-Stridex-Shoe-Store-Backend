@@ -6,18 +6,22 @@ import { slugify } from '../util/slug';
 // GET /api/v1/categories
 export const getAllCategories = async (req: Request, res: Response) => {
   try {
-    const { active, search } = req.query;
+    const { active, search, featured } = req.query;
     const filter: Record<string, any> = {};
 
     if (active !== undefined) {
       filter.isActive = active === 'true';
     }
 
+    if (featured !== undefined) {
+      filter.isFeatured = featured === 'true';
+    }
+
     if (search) {
       filter.name = { $regex: String(search), $options: 'i' };
     }
 
-    const categories = await CategoryModel.find(filter).sort({ createdAt: -1 });
+    const categories = await CategoryModel.find(filter).sort({ isFeatured: -1, createdAt: 1 });
 
     // Count products per category
     const categoriesWithCount = await Promise.all(
@@ -80,7 +84,7 @@ export const getCategoryById = async (req: Request, res: Response) => {
 // POST /api/v1/categories
 export const createCategory = async (req: Request, res: Response) => {
   try {
-    const { name, description, image, isActive } = req.body;
+    const { name, description, image, isActive, badge, isFeatured } = req.body;
     const slug = slugify(name);
 
     const existing = await CategoryModel.findOne({
@@ -99,6 +103,8 @@ export const createCategory = async (req: Request, res: Response) => {
       slug,
       description: description || '',
       image: image || '',
+      badge: badge || '',
+      isFeatured: isFeatured !== undefined ? isFeatured : false,
       isActive: isActive !== undefined ? isActive : true,
     });
 
@@ -122,7 +128,7 @@ export const createCategory = async (req: Request, res: Response) => {
 export const updateCategory = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, image, isActive } = req.body;
+    const { name, description, image, isActive, badge, isFeatured } = req.body;
 
     const category = await CategoryModel.findById(id);
     if (!category) {
@@ -152,6 +158,8 @@ export const updateCategory = async (req: Request, res: Response) => {
 
     if (description !== undefined) category.description = description;
     if (image !== undefined) category.image = image;
+    if (badge !== undefined) category.badge = badge;
+    if (isFeatured !== undefined) category.isFeatured = isFeatured;
     if (isActive !== undefined) category.isActive = isActive;
 
     await category.save();
