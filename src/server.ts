@@ -5,14 +5,15 @@ import app from "./app"
 import { connectDB } from "./config/db"
 import { ensureStorageBucketExists } from "./config/supabase"
 
-const PORT = process.env.PORT || 3000
+const PORT = Number(process.env.PORT) || 3000
+const HOST = "0.0.0.0"
 
 const startServer = async () => {
-  // Start HTTP Server
-  const server = app.listen(PORT, () => {
+  // Start HTTP Server bound to 0.0.0.0 for Cloud Containers (Render)
+  const server = app.listen(PORT, HOST, () => {
     console.log(`===============================================`)
-    console.log(`🚀 STRIDEX Backend running on http://localhost:${PORT}`)
-    console.log(`📡 Health check: http://localhost:${PORT}/api/health`)
+    console.log(`🚀 STRIDEX Backend running on http://${HOST}:${PORT}`)
+    console.log(`📡 Health check: http://${HOST}:${PORT}/api/health`)
     console.log(`===============================================`)
   })
 

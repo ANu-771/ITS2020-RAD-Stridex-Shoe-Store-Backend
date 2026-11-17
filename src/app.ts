@@ -2,6 +2,7 @@ import express, { Application, Request, Response } from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import path from "path"
+import mongoose from "mongoose"
 import AuthRouter from "./routes/auth.routers"
 import CategoryRouter from "./routes/category.routers"
 import BrandRouter from "./routes/brand.routers"
@@ -22,17 +23,45 @@ import { errorHandler, notFoundHandler } from "./middleware/error"
 
 const app: Application = express()
 
+// Allowed Origins for Cross-Origin Resource Sharing (CORS)
+const allowedOrigins = [
+  "https://stridex-shoes.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:4173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:4173",
+]
+
+if (process.env.FRONTEND_URL) {
+  const cleanFrontendUrl = process.env.FRONTEND_URL.trim().replace(/\/+$/, "")
+  if (!allowedOrigins.includes(cleanFrontendUrl)) {
+    allowedOrigins.push(cleanFrontendUrl)
+  }
+}
+
 // Global Middlewares
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:4173",
-      "http://localhost:3000",
-      "http://127.0.0.1:5173",
-      "http://127.0.0.1:4173",
-    ],
+    origin: (origin, callback) => {
+      // Allow server-to-server, curl, Postman, or mobile requests with no origin header
+      if (!origin) return callback(null, true)
+
+      // Allow static whitelisted origins
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true)
+      }
+
+      // Allow all Vercel production and preview deployment URLs (*.vercel.app)
+      if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
+        return callback(null, true)
+      }
+
+      return callback(new Error(`CORS Error: Origin '${origin}' is not allowed by STRIDEX CORS policy.`))
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   })
 )
 app.use(cookieParser())
@@ -43,13 +72,26 @@ app.use(express.urlencoded({ extended: true }))
 app.use("/assets", express.static(path.join(__dirname, "../assets")))
 app.use("/uploads", express.static(path.join(__dirname, "../assets")))
 
-// Health check endpoint (compatible with both UptimeRobot and Axios baseURL)
+// Health check endpoint (compatible with UptimeRobot, Render, and Axios baseURL)
 app.get(["/api/health", "/api/v1/health"], (_req: Request, res: Response) => {
+  const dbReady = mongoose.connection.readyState === 1
+  const dbStatus =
+    mongoose.connection.readyState === 1
+      ? "connected"
+      : mongoose.connection.readyState === 2
+      ? "connecting"
+      : "disconnected"
+
   res.status(200).json({
-    status: "ok",
+    status: dbReady ? "ok" : "degraded",
     service: "STRIDEX Backend API",
     version: "3.0.0",
-    database: "MongoDB Atlas",
+    database: {
+      status: dbStatus,
+      readyState: mongoose.connection.readyState,
+      name: dbReady ? mongoose.connection.name : "unconnected",
+    },
+    uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   })
 })
