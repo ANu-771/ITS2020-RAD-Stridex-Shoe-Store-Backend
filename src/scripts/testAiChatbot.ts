@@ -283,7 +283,7 @@ async function runAiChatbotTestSuite() {
     // Live catalog must not contain deactivated shoe
     const liveCatalogAfterDeactivation = await aiChatService.getLiveProductCatalog();
     const isPresent = liveCatalogAfterDeactivation.some(
-      (p) => p.id === createdTestProductId.toString()
+      (p: any) => p.id === createdTestProductId.toString()
     );
     assert(!isPresent, 'Deactivated product is immediately excluded from live catalog queries');
 

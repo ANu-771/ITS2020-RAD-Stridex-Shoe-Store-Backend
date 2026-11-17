@@ -16,6 +16,7 @@ import AdminDashboardRouter from "./routes/adminDashboard.routers"
 import CouponRouter from "./routes/coupon.routers"
 import ReviewRouter from "./routes/review.routers"
 import GiftVoucherRouter from "./routes/giftVoucher.routers"
+import BotSettingRouter from "./routes/botSetting.routers"
 import AiRouter from "./routes/ai.routers"
 import { errorHandler, notFoundHandler } from "./middleware/error"
 
@@ -79,6 +80,7 @@ app.use("/api/v1/coupons", CouponRouter)
 app.use("/api/v1/reviews", ReviewRouter)
 app.use("/api/v1/vouchers", GiftVoucherRouter)
 app.use("/api/v1/admin/vouchers", GiftVoucherRouter)
+app.use("/api/v1/admin/bot-controls", BotSettingRouter)
 app.use("/api/v1/ai", AiRouter)
 
 // 404 & Centralized Error Handlers
