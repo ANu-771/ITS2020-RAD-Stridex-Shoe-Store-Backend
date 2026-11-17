@@ -10,32 +10,72 @@ const seedCatalog = async () => {
     await connectDB();
     console.log('Seeding STRIDEX Phase 3 Shoe Catalog (LKR Currency)...');
 
-    // 1. Seed Brands
+    // 1. Seed Brands (All 12 Banner Brands + 'Other' Generic Option)
     const brandData = [
       {
         name: 'Nike',
-        description: 'World-renowned athletic footwear and performance apparel.',
+        description: 'World-renowned athletic footwear, iconic streetwear silhouettes, and cutting-edge performance innovation.',
         logo: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&auto=format&fit=crop&q=80',
       },
       {
         name: 'Adidas',
-        description: 'Pioneering performance and streetwear with innovative midsole tech.',
+        description: 'Pioneering performance engineering and streetwear culture with Boost foam and timeless 3-stripes heritage.',
         logo: 'https://images.unsplash.com/photo-1518002171953-a080ee817e1f?w=300&auto=format&fit=crop&q=80',
       },
       {
         name: 'Puma',
-        description: 'Fast, bold sports fashion engineered for speed and lifestyle flair.',
+        description: 'Fast, bold sports fashion engineered for athletic speed, modern street culture, and lifestyle flair.',
         logo: 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=300&auto=format&fit=crop&q=80',
       },
       {
         name: 'New Balance',
-        description: 'Iconic heritage and premium craftsmanship built for runners and tastemakers.',
+        description: 'Iconic heritage runners, archival silhouettes, and premium American/UK craftsmanship built for creators.',
         logo: 'https://images.unsplash.com/photo-1551107696-a4b0c5a0d9a2?w=300&auto=format&fit=crop&q=80',
       },
       {
         name: 'DSI Premier',
-        description: 'Leading Sri Lankan footwear artisan brand offering refined leather craftsmanship.',
+        description: 'Leading Sri Lankan footwear artisan brand offering refined leather craftsmanship and executive comfort.',
         logo: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=300&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Under Armour',
+        description: 'High-performance athletic footwear engineered with responsive UA HOVR cushioning and maximum gym stability.',
+        logo: 'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=300&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Reebok',
+        description: 'Retro fitness roots and classic court heritage engineered for cross-training, movement, and casual style.',
+        logo: 'https://images.unsplash.com/photo-1579338559194-a162d19bf842?w=300&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Converse',
+        description: 'Timeless Chuck Taylor canvas classics and authentic court heritage embraced by artists and counterculture.',
+        logo: 'https://images.unsplash.com/photo-1607522370275-f14206abe5d3?w=300&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Skechers',
+        description: 'Comfort-first footwear innovations featuring Air-Cooled Memory Foam and lightweight everyday walking support.',
+        logo: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=300&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Timberland',
+        description: 'Rugged outdoor waterproof boots and lifestyle leather silhouettes crafted for durability and all-weather protection.',
+        logo: 'https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=300&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Columbia',
+        description: 'All-terrain outdoor adventure and trail hiking shoes engineered with Omni-Grip traction and waterproof barriers.',
+        logo: 'https://images.unsplash.com/photo-1551107696-a4b0c5a0d9a2?w=300&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Allbirds',
+        description: 'Naturally sustainable lifestyle runners crafted with merino wool, sugarcane SweetFoam, and eucalyptus fibers.',
+        logo: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=300&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Other',
+        description: 'Independent, boutique, and specialty footwear brands curated by STRIDEX.',
+        logo: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=300&auto=format&fit=crop&q=80',
       },
     ];
 

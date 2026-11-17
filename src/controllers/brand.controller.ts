@@ -17,7 +17,16 @@ export const getAllBrands = async (req: Request, res: Response) => {
       filter.name = { $regex: String(search), $options: 'i' };
     }
 
-    const brands = await BrandModel.find(filter).sort({ createdAt: -1 });
+    const rawBrands = await BrandModel.find(filter);
+
+    // E-commerce standard: Sort brands alphabetically (A-Z) with 'Other' pinned to the bottom
+    const brands = rawBrands.sort((a, b) => {
+      const aIsOther = a.name.toLowerCase() === 'other' || a.slug === 'other';
+      const bIsOther = b.name.toLowerCase() === 'other' || b.slug === 'other';
+      if (aIsOther) return 1;
+      if (bIsOther) return -1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
 
     const brandsWithCount = await Promise.all(
       brands.map(async (brand) => {
