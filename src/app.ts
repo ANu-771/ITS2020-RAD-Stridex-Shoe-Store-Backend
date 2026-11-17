@@ -41,8 +41,8 @@ app.use(express.urlencoded({ extended: true }))
 // Static file serving for uploads
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")))
 
-// Health check endpoint
-app.get("/api/health", (_req: Request, res: Response) => {
+// Health check endpoint (compatible with both UptimeRobot and Axios baseURL)
+app.get(["/api/health", "/api/v1/health"], (_req: Request, res: Response) => {
   res.status(200).json({
     status: "ok",
     service: "STRIDEX Backend API",
