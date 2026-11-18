@@ -29,12 +29,15 @@ All financial transactions are strictly computed in **Sri Lankan Rupees (LKR)** 
 
 ## 🌐 Deployed Service URLs
 
-| Environment | Service | URL | Notes |
+| Environment | Service | Clickable URL | Notes |
 | :--- | :--- | :--- | :--- |
-| **Production** | **REST API Base (Render)** | `https://stridex-api.onrender.com/api/v1` | Cloud production API service |
-| **Production** | **System Health Check** | `https://stridex-api.onrender.com/api/health` | UptimeRobot & load balancer monitor |
-| **Local Development** | **REST API Base** | `http://localhost:3000/api/v1` | Local development server |
-| **Local Development** | **System Health Check** | `http://localhost:3000/api/health` | JSON service diagnostic check |
+| **Production** | **API Welcome Endpoint** | [https://stridex-backend-mkkz.onrender.com](https://stridex-backend-mkkz.onrender.com) | Welcome message & API status (HTTP 200) |
+| **Production** | **System Health Check** | [https://stridex-backend-mkkz.onrender.com/api/health](https://stridex-backend-mkkz.onrender.com/api/health) | Live MongoDB & Uptime monitor (HTTP 200) |
+| **Production** | **Catalog API Endpoint** | [https://stridex-backend-mkkz.onrender.com/api/v1/products](https://stridex-backend-mkkz.onrender.com/api/v1/products) | Footwear products endpoint (HTTP 200) |
+| **Local Development** | **Local API Service** | [http://localhost:3000](http://localhost:3000) | Local development Express server |
+| **Local Development** | **Local Health Check** | [http://localhost:3000/api/health](http://localhost:3000/api/health) | Diagnostic health check |
+
+> ℹ️ **Note on API Base URL**: `https://stridex-backend-mkkz.onrender.com/api/v1` is the base router prefix utilized by the frontend Axios client. Querying `/api/v1` directly in a browser without a specific resource returns `Cannot GET /api/v1`; endpoints are accessed via their resource routes (e.g., `/api/v1/products`, `/api/v1/categories`, `/api/health`).
 
 ---
 
